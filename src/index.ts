@@ -3,15 +3,9 @@ import { Buffer } from 'buffer';
 import fileType from 'file-type';
 import jpeg from 'jpeg-js';
 import { PNG } from 'pngjs';
-import request from 'request';
-import { URL } from 'url';
 import webp from '@cwasm/webp';
 import blockhash from './block-hash';
 
-export interface UrlRequestObject {
-  encoding?: string | null,
-  url: string | null,
-}
 
 export interface BufferObject {
   ext?: string,
@@ -49,19 +43,14 @@ const processWebp = (data, bits, method, cb) => {
   }
 };
 
-const isUrlRequestObject = (obj: UrlRequestObject | BufferObject): obj is UrlRequestObject => {
-  const casted = (obj as UrlRequestObject);
-  return casted.url && casted.url.length > 0;
-};
-
-const isBufferObject = (obj: UrlRequestObject | BufferObject): obj is BufferObject => {
+const isBufferObject = (obj: BufferObject): obj is BufferObject => {
   const casted = (obj as BufferObject);
   return Buffer.isBuffer(casted.data)
     || (Buffer.isBuffer(casted.data) && (casted.ext && casted.ext.length > 0));
 };
 
 // eslint-disable-next-line
-export const imageHash = (oldSrc: string | UrlRequestObject | BufferObject, bits, method, cb) => {
+export const imageHash = (oldSrc: string | BufferObject, bits, method, cb) => {
   const src = oldSrc;
 
   const getFileType = async (data: Buffer | string) => {
@@ -117,16 +106,6 @@ export const imageHash = (oldSrc: string | UrlRequestObject | BufferObject, bits
     });
   };
 
-  const handleRequest = (err, res) => {
-    if (err) {
-      cb(new Error(err));
-    } else {
-      const url = new URL(res.request.uri.href);
-      const name = url.pathname;
-      checkFileType(name, res.body);
-    }
-  };
-
   const handleReadFile = (err, res) => {
     if (err) {
       cb(new Error(err));
@@ -142,23 +121,19 @@ export const imageHash = (oldSrc: string | UrlRequestObject | BufferObject, bits
     return;
   }
 
-  // is src url or file
-  if (typeof src === 'string' && (src.indexOf('http') === 0 || src.indexOf('https') === 0)) {
-    // url
-    const req = {
-      url: src,
-      encoding: null,
-    };
-    request(req, handleRequest);
-  } else if (typeof src !== 'string' && isBufferObject(src)) {
+  if (typeof src !== 'string' && isBufferObject(src)) {
     // image buffers
     checkFileType(src.name, src.data);
-  } else if (typeof src !== 'string' && isUrlRequestObject(src)) {
-    // Request Object
-    src.encoding = null;
-    request(src, handleRequest);
   } else {
     // file
     fs.readFile(src, handleReadFile);
   }
+};
+
+export const hammingDistance = (hash1:string, hash2:string) => { 
+  let distance = 0; 
+  for (let i = 0; i < hash1.length; i++) { 
+    if (hash1[i] !== hash2[i]) { distance++; } 
+  } 
+  return distance;
 };
